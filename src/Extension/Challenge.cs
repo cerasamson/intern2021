@@ -1,5 +1,4 @@
 ﻿using Microsoft.DotNet.Interactive;
-using Microsoft.DotNet.Interactive.Commands;
 using Microsoft.DotNet.Interactive.Events;
 using System;
 using System.Collections.Generic;
@@ -12,10 +11,8 @@ namespace Extension
 {
     public class Challenge
     {
-        public string Name { get; }
-        public Lesson Lesson { get; internal set; }
+        public Lesson Lesson { get; set; }
         public IReadOnlyList<EditableCode> Contents { get; }
-        public IReadOnlyList<SubmitCode> Setup { get; }
         public bool Revealed { get; set; } = false;
         public Func<ChallengeContext, Task> OnCodeSubmittedHandler { get; private set; }
         public ChallengeEvaluation CurrentEvaluation => CurrentSubmission?.Evaluation;
@@ -26,11 +23,10 @@ namespace Extension
         private Stack<ChallengeSubmission> _submissionHistory = new();
         private ChallengeContext _context;
 
-        public Challenge(IReadOnlyList<EditableCode> content, IReadOnlyList<SubmitCode> setup = null, string name = null)
+        public Challenge(IReadOnlyList<EditableCode> content, Lesson lesson = null)
         {
             Contents = content;
-            Setup = setup ?? new SubmitCode[] { };
-            Name = name;
+            Lesson = lesson;
         }
 
         public async Task Evaluate(string submittedCode = null, IEnumerable<KernelEvent> events = null)
@@ -39,8 +35,7 @@ namespace Extension
 
             foreach (var (rule, index) in _rules.Select((r, i) => (r, i)))
             {
-                var ruleLabel = string.IsNullOrWhiteSpace(rule.Name) ? $"Rule {index + 1}" : rule.Name;
-                var ruleContext = new RuleContext(_context, submittedCode, events, ruleLabel);
+                var ruleContext = new RuleContext(_context, submittedCode, events, $"Rule {index + 1}");
                 try
                 {
                     rule.Evaluate(ruleContext);
@@ -54,31 +49,38 @@ namespace Extension
 
             await InvokeOnCodeSubmittedHandler();
             
+            if (Lesson.CurrentChallenge == this)
+            {
+                if (_context.RuleEvaluations.All(e => e.Passed))
+                {
+                    await Lesson.StartNextChallengeAsync();
+                }
+            }
+
             _submissionHistory.Push(new ChallengeSubmission(submittedCode, _context.Evaluation, events));
         }
 
         public async Task InvokeOnCodeSubmittedHandler()
         {
-            if (OnCodeSubmittedHandler is not null)
+            if (OnCodeSubmittedHandler != null)
             {
-                await OnCodeSubmittedHandler(_context); 
+                await OnCodeSubmittedHandler(_context);
             }
         }
 
-        public void AddRuleAsync(string name, Func<RuleContext, Task> action) => AddRule(new Rule(action, name));
-
-        public void AddRuleAsync(Func<RuleContext, Task> action) => AddRuleAsync(null, action);
-        
-        public void AddRule(string name, Action<RuleContext> action)
+        public void AddRuleAsync(Func<RuleContext, Task> action)
         {
-            AddRuleAsync(name, (context) =>
+            AddRule(new Rule(action));
+        }
+
+        public void AddRule(Action<RuleContext> action)
+        {
+            AddRuleAsync((context) =>
             {
                 action(context);
                 return Task.CompletedTask;
             });
         }
-
-        public void AddRule(Action<RuleContext> action) => AddRule(null, action);
 
         public void OnCodeSubmittedAsync(Func<ChallengeContext, Task> action)
         {

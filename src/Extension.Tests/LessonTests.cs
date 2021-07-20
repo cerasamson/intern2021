@@ -119,5 +119,26 @@ namespace Extension.Tests
 
             lesson.CurrentChallenge.Should().Be(challenge1);
         }
+
+        [Fact]
+        public async Task if_teacher_does_not_start_a_challenge_and_all_rules_passed_then_go_to_next_challenge()
+        {
+            var lesson = new Lesson();
+            using var kernel = new CompositeKernel
+            {
+                new CSharpKernel()
+            }.UseLessonEvaluateMiddleware(lesson);
+            var challenge1 = GetChallenge("1");
+            var challenge2 = GetChallenge("2");
+            var challenge3 = GetChallenge("3");
+            lesson.AddChallenge(challenge1);
+            lesson.AddChallenge(challenge2);
+            lesson.AddChallenge(challenge3);
+            await lesson.StartChallengeAsync(challenge1);
+
+            await kernel.SubmitCodeAsync("1+1");
+
+            lesson.CurrentChallenge.Should().Be(challenge2);
+        }
     }
 }
