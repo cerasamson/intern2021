@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
@@ -17,7 +18,7 @@ namespace Extension.Tests.Utilities
             return new Challenge();
         }
 
-        protected async Task<CompositeKernel> CreateKernel(LessonMode mode)
+        protected async Task<CompositeKernel> CreateKernel(LessonMode mode, HttpClient httpClient = null)
         {
             var kernel = new CompositeKernel
             {
@@ -27,7 +28,7 @@ namespace Extension.Tests.Utilities
 
             Lesson.Mode = mode;
 
-            await Main.OnLoadAsync(kernel);
+            await Main.OnLoadAsync(kernel, httpClient);
 
             return kernel;
         }
@@ -37,10 +38,9 @@ namespace Extension.Tests.Utilities
             return $"#!model-answer\r\n{answer}";
         }
 
-        protected string GetNotebookPath(string relativeFilePath)
+        protected string GetNotebookPath(string notebookName)
         {
-            var prefix = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-            return Path.GetFullPath(Path.Combine(prefix, relativeFilePath));
+            return PathUtilities.GetNotebookPath(notebookName);
         }
     }
 }

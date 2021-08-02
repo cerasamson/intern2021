@@ -8,6 +8,7 @@ using Microsoft.DotNet.Interactive.Notebook;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Reflection;
 using System.Threading.Tasks;
 using Xunit;
@@ -17,11 +18,33 @@ namespace Extension.Tests
     public class LoadingNotebookLessonTests : ProgressiveLearningTestBase
     {
         [Fact]
+        public async Task teacher_can_load_notebook_from_url()
+        {
+            var capturedCommands = new List<SendEditableCode>();
+            var client = new HttpClient(new FakeHttpMessageHandlerForNotebookLoading());
+            var kernel = await CreateKernel(LessonMode.StudentMode, client);
+            var vscodeKernel = kernel.FindKernel("vscode");
+            vscodeKernel.RegisterCommandHandler<SendEditableCode>((command, _) =>
+            {
+                capturedCommands.Add(command);
+                return Task.CompletedTask;
+            });
+            using var events = kernel.KernelEvents.ToSubscribedList();
+            await kernel.SubmitCodeAsync(@"#!start-lesson --from-url ""http://wat.com/twoChallenges.dib""");
+
+            await kernel.SubmitCodeAsync("Console.WriteLine(1 + 1);");
+
+            capturedCommands.GetRange(2, 2).Should().SatisfyRespectively(
+                e => e.Code.Should().Contain("// write your answer to DFS below"),
+                e => e.Code.Should().Contain("This is the DFS question."));
+        }
+
+        [Fact]
         public async Task teacher_can_execute_lesson_setup_code()
         {
             var kernel = await CreateKernel(LessonMode.StudentMode);
             using var events = kernel.KernelEvents.ToSubscribedList();
-            await kernel.SubmitCodeAsync($"#!start-lesson --from-file {GetNotebookPath(@"Notebooks\twoChallenges.dib")}");
+            await kernel.SubmitCodeAsync($"#!start-lesson --from-file {GetNotebookPath("twoChallenges.dib")}");
 
             await kernel.SubmitCodeAsync("lessonSetupVar");
 
@@ -33,7 +56,7 @@ namespace Extension.Tests
         {
             var kernel = await CreateKernel(LessonMode.StudentMode);
             using var events = kernel.KernelEvents.ToSubscribedList();
-            await kernel.SubmitCodeAsync($"#!start-lesson --from-file {GetNotebookPath(@"Notebooks\singleChallenge.dib")}");
+            await kernel.SubmitCodeAsync($"#!start-lesson --from-file {GetNotebookPath("singleChallenge.dib")}");
 
             await kernel.SubmitCodeAsync("1");
 
@@ -51,7 +74,7 @@ namespace Extension.Tests
         {
             var kernel = await CreateKernel(LessonMode.StudentMode);
             using var events = kernel.KernelEvents.ToSubscribedList();
-            await kernel.SubmitCodeAsync($"#!start-lesson --from-file {GetNotebookPath(@"Notebooks\singleChallenge.dib")}");
+            await kernel.SubmitCodeAsync($"#!start-lesson --from-file {GetNotebookPath("singleChallenge.dib")}");
 
             await kernel.SubmitCodeAsync("1");
 
@@ -66,7 +89,7 @@ namespace Extension.Tests
         {
             var kernel = await CreateKernel(LessonMode.StudentMode);
             using var events = kernel.KernelEvents.ToSubscribedList();
-            await kernel.SubmitCodeAsync($"#!start-lesson --from-file {GetNotebookPath(@"Notebooks\singleChallenge.dib")}");
+            await kernel.SubmitCodeAsync($"#!start-lesson --from-file {GetNotebookPath("singleChallenge.dib")}");
 
             await kernel.SubmitCodeAsync("challengeSetupVar");
 
@@ -86,7 +109,7 @@ namespace Extension.Tests
             });
             using var events = kernel.KernelEvents.ToSubscribedList();
 
-            await kernel.SubmitCodeAsync($"#!start-lesson --from-file {GetNotebookPath(@"Notebooks\singleChallenge.dib")}");
+            await kernel.SubmitCodeAsync($"#!start-lesson --from-file {GetNotebookPath("singleChallenge.dib")}");
 
             capturedCommands.Should().SatisfyRespectively(
                 e => e.Code.Should().Contain("This is the LinkedList question."),
@@ -106,7 +129,7 @@ namespace Extension.Tests
             });
             using var events = kernel.KernelEvents.ToSubscribedList();
 
-            await kernel.SubmitCodeAsync($"#!start-lesson --from-file {GetNotebookPath(@"Notebooks\singleChallenge.dib")}");
+            await kernel.SubmitCodeAsync($"#!start-lesson --from-file {GetNotebookPath("singleChallenge.dib")}");
 
             capturedCommands.Select(c => c.Code).Join("\r\n")
                 .Should().NotContainAny(NotebookLessonParser.AllDirectiveNames);
@@ -125,7 +148,7 @@ namespace Extension.Tests
             });
             using var events = kernel.KernelEvents.ToSubscribedList();
 
-            await kernel.SubmitCodeAsync($"#!start-lesson --from-file {GetNotebookPath(@"Notebooks\singleChallenge.dib")}");
+            await kernel.SubmitCodeAsync($"#!start-lesson --from-file {GetNotebookPath("singleChallenge.dib")}");
 
             capturedCommands.Select(c => c.Code).Join("\r\n")
                 .Should().NotContainAny("// random scratchpad stuff");
@@ -136,7 +159,7 @@ namespace Extension.Tests
         {
             var kernel = await CreateKernel(LessonMode.StudentMode);
             using var events = kernel.KernelEvents.ToSubscribedList();
-            await kernel.SubmitCodeAsync($"#!start-lesson --from-file {GetNotebookPath(@"Notebooks\twoChallenges.dib")}");
+            await kernel.SubmitCodeAsync($"#!start-lesson --from-file {GetNotebookPath("twoChallenges.dib")}");
             await kernel.SubmitCodeAsync("Console.WriteLine(1 + 1);");
 
             await kernel.SubmitCodeAsync("1 + 1");
@@ -155,7 +178,7 @@ namespace Extension.Tests
         {
             var kernel = await CreateKernel(LessonMode.StudentMode);
             using var events = kernel.KernelEvents.ToSubscribedList();
-            await kernel.SubmitCodeAsync($"#!start-lesson --from-file {GetNotebookPath(@"Notebooks\twoChallenges.dib")}");
+            await kernel.SubmitCodeAsync($"#!start-lesson --from-file {GetNotebookPath("twoChallenges.dib")}");
             await kernel.SubmitCodeAsync("Console.WriteLine(1 + 1);");
 
             await kernel.SubmitCodeAsync("1 + 1");
@@ -171,7 +194,7 @@ namespace Extension.Tests
         {
             var kernel = await CreateKernel(LessonMode.StudentMode);
             using var events = kernel.KernelEvents.ToSubscribedList();
-            await kernel.SubmitCodeAsync($"#!start-lesson --from-file {GetNotebookPath(@"Notebooks\twoChallenges.dib")}");
+            await kernel.SubmitCodeAsync($"#!start-lesson --from-file {GetNotebookPath("twoChallenges.dib")}");
             await kernel.SubmitCodeAsync("Console.WriteLine(1 + 1);");
 
             await kernel.SubmitCodeAsync("anotherChallengeSetupVar");
@@ -191,7 +214,7 @@ namespace Extension.Tests
                 return Task.CompletedTask;
             });
             using var events = kernel.KernelEvents.ToSubscribedList();
-            await kernel.SubmitCodeAsync($"#!start-lesson --from-file {GetNotebookPath(@"Notebooks\twoChallenges.dib")}");
+            await kernel.SubmitCodeAsync($"#!start-lesson --from-file {GetNotebookPath("twoChallenges.dib")}");
 
             await kernel.SubmitCodeAsync("Console.WriteLine(1 + 1);");
 
@@ -212,7 +235,7 @@ namespace Extension.Tests
                 return Task.CompletedTask;
             });
             using var events = kernel.KernelEvents.ToSubscribedList();
-            await kernel.SubmitCodeAsync($"#!start-lesson --from-file {GetNotebookPath(@"Notebooks\twoChallenges.dib")}");
+            await kernel.SubmitCodeAsync($"#!start-lesson --from-file {GetNotebookPath("twoChallenges.dib")}");
 
             await kernel.SubmitCodeAsync("Console.WriteLine(1 + 1);");
 
@@ -233,7 +256,7 @@ namespace Extension.Tests
                 return Task.CompletedTask;
             });
             using var events = kernel.KernelEvents.ToSubscribedList();
-            await kernel.SubmitCodeAsync($"#!start-lesson --from-file {GetNotebookPath(@"Notebooks\singleChallenge.dib")}");
+            await kernel.SubmitCodeAsync($"#!start-lesson --from-file {GetNotebookPath("singleChallenge.dib")}");
 
             await kernel.SubmitCodeAsync("Console.WriteLine(1 + 1);");
 
@@ -246,7 +269,7 @@ namespace Extension.Tests
         {
             var kernel = await CreateKernel(LessonMode.StudentMode);
             using var events = kernel.KernelEvents.ToSubscribedList();
-            await kernel.SubmitCodeAsync($"#!start-lesson --from-file {GetNotebookPath(@"Notebooks\variableReplacing.dib")}");
+            await kernel.SubmitCodeAsync($"#!start-lesson --from-file {GetNotebookPath("variableReplacing.dib")}");
 
             await kernel.SubmitCodeAsync(@"
 CalcTrigArea = (double x, double y) => 0.5 * x * y;
@@ -264,7 +287,7 @@ CalcTrigArea = (double x, double y) => 0.5 * x * y;
         {
             var kernel = await CreateKernel(LessonMode.StudentMode);
             using var events = kernel.KernelEvents.ToSubscribedList();
-            var result = await kernel.SubmitCodeAsync($"#!start-lesson --from-file {GetNotebookPath(@"Notebooks\twoChallenges.dib")} --from-url http://bing.com");
+            var result = await kernel.SubmitCodeAsync($"#!start-lesson --from-file {GetNotebookPath("twoChallenges.dib")} --from-url http://bing.com");
             
             result.KernelEvents
                 .ToSubscribedList()
