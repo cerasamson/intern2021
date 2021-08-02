@@ -75,7 +75,7 @@ namespace Extension
             }
             else
             {
-                PocketView header = summary[style: outcomeDivStyle](($"[ {Name} ]: "), b(outcomeMessage));
+                PocketView header = summary[style: outcomeDivStyle](b($"[ {Name} ]: "), (outcomeMessage));
 
                 elements.Add(header);
             }
